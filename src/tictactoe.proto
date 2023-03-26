@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-service TicTacToeService {
+service TicTacToe {
   rpc StartElection(ElectionMessage) returns (ElectionResponse) {}
   rpc ReportLeader(LeaderMessage) returns (LeaderResponse) {}
   rpc GetTime(TimeRequest) returns (TimeResponse) {}
@@ -8,14 +8,14 @@ service TicTacToeService {
 }
 
 message ElectionMessage {
-  repeated int32 servers_list = 1;
+  repeated int32 nodes = 1;
 }
 
 message ElectionResponse {}
 
 message LeaderMessage {
   int32 leader = 1;
-  repeated int32 servers_list = 2;
+  repeated int32 nodes = 2;
 }
 
 message LeaderResponse {}

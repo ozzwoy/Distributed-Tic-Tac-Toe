@@ -16,12 +16,8 @@ class Node(tictactoe_pb2_grpc.TicTacToeServicer):
 
     def StartElection(self, request, context):
         nodes = list(request.nodes)
-
-        if len(nodes) == 0:
-            print("Initiating elections.")
-        else:
-            print(f"Received election message from Node {nodes[-1]}.")
-            print(f"Current list of visited nodes: {nodes}.")
+        print(f"Received election message from Node {nodes[-1]}.")
+        print(f"Current list of visited nodes: {nodes}.")
 
         next_node = self.id % self.num_nodes + 1
 
@@ -42,6 +38,7 @@ class Node(tictactoe_pb2_grpc.TicTacToeServicer):
     def ReportLeader(self, request, context):
         nodes = list(request.nodes)
         print(f"Received leader message from Node {nodes[-1]}.")
+        print(f"Elections finished! New leader: Node {request.leader}.")
         print(f"Current list of visited nodes: {nodes}.")
 
         next_node = self.id % self.num_nodes + 1
@@ -66,14 +63,10 @@ class Node(tictactoe_pb2_grpc.TicTacToeServicer):
 
 def serve():
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-    tictactoe_pb2_grpc.add_TicTacToeServicer_to_server(Node(1, config.NUM_NODES, config.IDS_TO_IPS), server)
-    server.add_insecure_port('[::]:20048')
+    tictactoe_pb2_grpc.add_TicTacToeServicer_to_server(Node(3, config.NUM_NODES, config.IDS_TO_IPS), server)
+    server.add_insecure_port('[::]:20050')
     server.start()
     print("Server started listening on DESIGNATED port")
-
-    with grpc.insecure_channel(config.IDS_TO_IPS[1]) as channel:
-        stub = tictactoe_pb2_grpc.TicTacToeStub(channel)
-        stub.StartElection(tictactoe_pb2.ElectionMessage(nodes=[]))
 
     try:
         while True:

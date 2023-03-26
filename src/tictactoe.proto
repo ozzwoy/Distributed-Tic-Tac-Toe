@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+service TicTacToeService {
+  rpc StartElection(ElectionMessage) returns (ElectionResponse) {}
+  rpc ReportLeader(LeaderMessage) returns (LeaderResponse) {}
+  rpc GetTime(TimeRequest) returns (TimeResponse) {}
+  rpc SynchTime(TimeSynchRequest) returns (TimeSynchResponse) {}
+}
+
+message ElectionMessage {
+  repeated int32 servers_list = 1;
+}
+
+message ElectionResponse {}
+
+message LeaderMessage {
+  int32 leader = 1;
+  repeated int32 servers_list = 2;
+}
+
+message LeaderResponse {}
+
+message TimeRequest {}
+
+message TimeResponse {
+  string timestamp = 1;
+}
+
+message TimeSynchRequest {
+  string timestamp = 1;
+}
+
+message TimeSynchResponse {}

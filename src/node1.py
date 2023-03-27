@@ -158,6 +158,26 @@ def serve():
 
     print("Ready to play!\n")
 
+    while True:
+        command = input(f'Node-{node_id}> ')
+        command = command.split(' ')
+
+        if command[0] == 'List-board':
+            pass
+        elif command[0] == 'Set-symbol':
+            cell = int(command[1][0])
+            symbol = command[2]
+
+            pass
+        elif command[0] == 'Set-node-time':
+            time_str = command[1][1:-1]
+            time_str = time_str.split(':')
+            hh, mm, ss = time_str[0], time_str[1], time_str[2]
+
+            pass
+        else:
+            print('Wrong command! Please try again.')
+
     server.wait_for_termination()
 
 

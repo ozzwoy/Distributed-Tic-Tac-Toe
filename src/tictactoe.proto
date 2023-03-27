@@ -5,6 +5,10 @@ service TicTacToe {
   rpc ReportLeader(LeaderMessage) returns (LeaderResponse) {}
   rpc GetTime(TimeRequest) returns (TimeResponse) {}
   rpc SynchTime(TimeSynchRequest) returns (TimeSynchResponse) {}
+
+  rpc SetSymbol(SetSymbolRequest) returns (SetNodeTimeResponse) {}
+  rpc ListBoard(ListBoardRequest) returns (ListBoardResponse) {}
+  rpc SetNodeTime(SetNodeTimeRequest) returns (SetNodeTimeResponse) {}
 }
 
 message ElectionMessage {
@@ -32,16 +36,27 @@ message TimeSynchRequest {
 
 message TimeSynchResponse {}
 
-message SetSymbolRequest {}
+message SetSymbolRequest {
+  int32 cell = 1;
+  string symbol = 2;
+}
 
 message SetSymbolResponse {
-  bool successful = true;
+  bool successful = 1;
+  string message = 2;
 }
 
 message ListBoardRequest {}
 
-message ListBoardResponse {}
+message ListBoardResponse {
+  string timestamp = 1;
+  string board = 2;
+}
 
-message SetNodeTimeRequest {}
+message SetNodeTimeRequest {
+  int32 hh = 1;
+  int32 mm = 2;
+  int32 ss = 3;
+}
 
 message SetNodeTimeResponse {}

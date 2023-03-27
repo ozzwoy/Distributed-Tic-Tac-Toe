@@ -31,3 +31,17 @@ message TimeSynchRequest {
 }
 
 message TimeSynchResponse {}
+
+message SetSymbolRequest {}
+
+message SetSymbolResponse {
+  bool successful = true;
+}
+
+message ListBoardRequest {}
+
+message ListBoardResponse {}
+
+message SetNodeTimeRequest {}
+
+message SetNodeTimeResponse {}

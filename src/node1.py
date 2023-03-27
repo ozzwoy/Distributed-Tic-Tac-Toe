@@ -17,6 +17,8 @@ class Node(tictactoe_pb2_grpc.TicTacToeServicer):
         self.synchronized = False
         self.timedelta = datetime.timedelta()
 
+        self.game = None
+
     def StartElection(self, request, context):
         nodes = list(request.nodes)
 
@@ -129,6 +131,9 @@ class Node(tictactoe_pb2_grpc.TicTacToeServicer):
                 stub.SynchTime(tictactoe_pb2.TimeSynchRequest(timestamp=average_time))
 
         print(f"Synchronization finished. Synchronized time: {datetime.datetime.utcnow() + self.timedelta}.")
+
+    def init_game(self):
+        self.game =
 
 
 def serve():

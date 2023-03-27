@@ -2,9 +2,13 @@ class TicTacToe:
     def __init__(self):
         self.players = ['X', 'O']
         self.current_player = 0
-        self.board = ['-'] * 9
+        self.empty_cell = '-'
+        self.board = [self.empty_cell] * 9
 
     def get_board(self):
+        return self.board
+
+    def get_board_str(self):
         return f'{self.board[0]}  |  {self.board[1]}  |  {self.board[2]}'\
                f'-----------------'\
                f'{self.board[3]}  |  {self.board[4]}  |  {self.board[5]}' \
@@ -16,13 +20,16 @@ class TicTacToe:
         if symbol != self.players[self.current_player]:
             return False
 
-        if 1 <= cell <= 9 and self.board[cell - 1] == '-':
+        if 1 <= cell <= 9 and self.board[cell - 1] == self.empty_cell:
             self.board[cell - 1] = self.players[self.current_player]
             self.current_player = (self.current_player + 1) % 2
 
             return True
 
         return False
+
+    def get_current_turn(self):
+        return self.players[self.current_player]
 
     def get_winner(self):
         if self.is_finished():

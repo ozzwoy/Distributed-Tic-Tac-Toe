@@ -43,6 +43,7 @@ message SetSymbolRequest {
 
 message SetSymbolResponse {
   bool successful = 1;
+  string message = 2;
 }
 
 message ListBoardRequest {}

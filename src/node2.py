@@ -6,7 +6,7 @@ import tictactoe_pb2
 import tictactoe_pb2_grpc
 
 from concurrent import futures
-
+from model.model import TicTacToe
 
 class Node(tictactoe_pb2_grpc.TicTacToeServicer):
     def __init__(self, id_, num_nodes, ids_to_ips):
@@ -16,6 +16,8 @@ class Node(tictactoe_pb2_grpc.TicTacToeServicer):
         self.leader = None
         self.synchronized = False
         self.timedelta = datetime.timedelta()
+
+        self.game = None
 
     def StartElection(self, request, context):
         nodes = list(request.nodes)
@@ -51,7 +53,7 @@ class Node(tictactoe_pb2_grpc.TicTacToeServicer):
 
         next_node = self.id % self.num_nodes + 1
 
-        self.leader = True if self.id == request.leader else False
+        self.leader = request.leader
 
         if self.id in request.nodes:
             if request.leader in nodes:
@@ -83,6 +85,24 @@ class Node(tictactoe_pb2_grpc.TicTacToeServicer):
         self.synchronized = True
 
         return tictactoe_pb2.TimeSynchResponse()
+
+    def SetSymbol(self, request, context):
+        if self.game.set_symbol(request.cell, request.symbol):
+            return tictactoe_pb2.SetSymbolResponse(successful=True, message='')
+        else:
+            message = ''
+
+            if self.game.current_turn() != request.symbol:
+                message = 'Not your turn!'
+            elif self.game.is_finished():
+                message = 'Game is finished!'
+            elif self.game.get_board()[request.cell] != self.game.empty_cell:
+                message = 'The cell is already occupied!'
+
+            return tictactoe_pb2.SetSymbolResponse(successful=False, message=message)
+
+    def ListBoard(self, request, context):
+        return tictactoe_pb2.ListBoardResponse(board=self.game.get_board_str())
 
     def conduct_elections(self):
         with grpc.insecure_channel(config.IDS_TO_IPS[self.id]) as channel:
@@ -116,6 +136,7 @@ class Node(tictactoe_pb2_grpc.TicTacToeServicer):
 
                 node_times[node] = Node.christians_algorithm(start, end, node_time, leader_time)[0]
 
+
         # reference_time = datetime.timedelta()
         # average_time = reference_time + sum([_time - reference_time for _time in node_times.values()],
         #                                     datetime.timedelta()) / config.NUM_NODES
@@ -128,6 +149,35 @@ class Node(tictactoe_pb2_grpc.TicTacToeServicer):
                 stub.SynchTime(tictactoe_pb2.TimeSynchRequest(timestamp=average_time))
 
         print(f"Synchronization finished. Synchronized time: {datetime.datetime.utcnow() + self.timedelta}.")
+
+    def init_game(self):
+        self.game = TicTacToe()
+
+
+def player_mode(node):
+    while True:
+        command = input(f'Node-{node.id}> ')
+        command = command.split(' ')
+
+        if command[0] == 'List-board':
+            pass
+        elif command[0] == 'Set-symbol':
+            cell = int(command[1][0])
+            symbol = command[2]
+
+            pass
+        elif command[0] == 'Set-node-time':
+            time_str = command[1][1:-1]
+            time_str = time_str.split(':')
+            hh, mm, ss = time_str[0], time_str[1], time_str[2]
+
+            pass
+        else:
+            print('Wrong command! Please try again.')
+
+
+def master_mode(node):
+    pass
 
 
 def serve():
@@ -143,7 +193,7 @@ def serve():
     while node.leader is None:
         time.sleep(0.001)
 
-    if node.leader:
+    if node.leader == node_id:
         print("\nI am the Master of the game!")
         node.synchronize_time()
     else:
@@ -154,6 +204,11 @@ def serve():
         time.sleep(0.001)
 
     print("Ready to play!\n")
+
+    if node.leader == node_id:
+        master_mode(node)
+    else:
+        player_mode(node)
 
     server.wait_for_termination()
 

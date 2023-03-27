@@ -9,12 +9,12 @@ class TicTacToe:
         return self.board
 
     def get_board_str(self):
-        return f'{self.board[0]}  |  {self.board[1]}  |  {self.board[2]}'\
-               f'-----------------'\
-               f'{self.board[3]}  |  {self.board[4]}  |  {self.board[5]}' \
-               f'-----------------'\
-               f'{self.board[3]}  |  {self.board[4]}  |  {self.board[5]}' \
-               f'-----------------'
+        return f'{self.board[0]}  |  {self.board[1]}  |  {self.board[2]}\n'\
+               f'-----------------\n'\
+               f'{self.board[3]}  |  {self.board[4]}  |  {self.board[5]}\n' \
+               f'-----------------\n'\
+               f'{self.board[3]}  |  {self.board[4]}  |  {self.board[5]}\n' \
+               f'-----------------\n'
 
     def set_symbol(self, cell, symbol):
         if symbol != self.players[self.current_player]:
@@ -28,7 +28,7 @@ class TicTacToe:
 
         return False
 
-    def get_current_turn(self):
+    def current_turn(self):
         return self.players[self.current_player]
 
     def get_winner(self):
@@ -40,18 +40,18 @@ class TicTacToe:
         return self.horizontal_win() or self.vertical_win() or self.diagonal_win() or self.board_full()
 
     def horizontal_win(self):
-        return (self.board[0] == self.board[1] == self.board[2]) or\
-               (self.board[3] == self.board[4] == self.board[5]) or\
-               (self.board[1] == self.board[2] == self.board[3])
+        return (self.board[0] == self.board[1] == self.board[2] and self.board[0] != self.empty_cell) or\
+               (self.board[3] == self.board[4] == self.board[5] and self.board[3] != self.empty_cell) or\
+               (self.board[6] == self.board[7] == self.board[8] and self.board[6] != self.empty_cell)
 
     def vertical_win(self):
-        return (self.board[0] == self.board[3] == self.board[6]) or\
-               (self.board[1] == self.board[4] == self.board[7]) or\
-               (self.board[2] == self.board[5] == self.board[8])
+        return (self.board[0] == self.board[3] == self.board[6] and self.board[0] != self.empty_cell) or\
+               (self.board[1] == self.board[4] == self.board[7] and self.board[1] != self.empty_cell) or\
+               (self.board[2] == self.board[5] == self.board[8] and self.board[2] != self.empty_cell)
 
     def diagonal_win(self):
-        return (self.board[0] == self.board[4] == self.board[8]) or\
-               (self.board[2] == self.board[4] == self.board[6])
+        return (self.board[0] == self.board[4] == self.board[8] and self.board[0] != self.empty_cell) or\
+               (self.board[2] == self.board[4] == self.board[6] and self.board[2] != self.empty_cell)
 
     def board_full(self):
         if "-" not in self.board:

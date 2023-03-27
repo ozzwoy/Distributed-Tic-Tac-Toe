@@ -18,6 +18,7 @@ class Node(tictactoe_pb2_grpc.TicTacToeServicer):
         self.timedelta = datetime.timedelta()
 
         self.game = None
+        self.game_started = False
 
     def StartElection(self, request, context):
         nodes = list(request.nodes)
@@ -102,7 +103,9 @@ class Node(tictactoe_pb2_grpc.TicTacToeServicer):
             return tictactoe_pb2.SetSymbolResponse(successful=False, message=message)
 
     def ListBoard(self, request, context):
-        return tictactoe_pb2.ListBoardResponse(board=self.game.get_board_str())
+        return tictactoe_pb2.ListBoardResponse(timestamp=(datetime.datetime.utcnow() +
+                                                          self.timedelta).strftime("%Y-%m-%d %H:%M:%S.%f")[:-3],
+                                               board=self.game.get_board_str())
 
     def conduct_elections(self):
         with grpc.insecure_channel(config.IDS_TO_IPS[self.id]) as channel:
@@ -137,10 +140,9 @@ class Node(tictactoe_pb2_grpc.TicTacToeServicer):
                 node_times[node] = Node.christians_algorithm(start, end, node_time, leader_time)[0]
 
 
-        # reference_time = datetime.timedelta()
+        reference_time = datetime.timedelta()
         # average_time = reference_time + sum([_time - reference_time for _time in node_times.values()],
         #                                     datetime.timedelta()) / config.NUM_NODES
-
         average_time = (datetime.datetime.utcnow() + self.timedelta).strftime("%Y-%m-%d %H:%M:%S.%f")[:-3] + "Z"
 
         for node in config.IDS_TO_IPS.values():
@@ -154,18 +156,21 @@ class Node(tictactoe_pb2_grpc.TicTacToeServicer):
         self.game = TicTacToe()
 
 
-def player_mode(node):
+def player_mode(node, stub):
     while True:
         command = input(f'Node-{node.id}> ')
         command = command.split(' ')
 
         if command[0] == 'List-board':
-            pass
+            response = stub.ListBoard(tictactoe_pb2.ListBoardRequest())
+            print(f'Timestamp: {response.timestamp}\n{response.board}\n')
         elif command[0] == 'Set-symbol':
             cell = int(command[1][0])
             symbol = command[2]
 
-            pass
+            response = stub.SetSymbol(tictactoe_pb2.SetSymbolRequest(cell=cell, symbol=symbol))
+            if not response.successful:
+                print(response.message)
         elif command[0] == 'Set-node-time':
             time_str = command[1][1:-1]
             time_str = time_str.split(':')
@@ -177,7 +182,16 @@ def player_mode(node):
 
 
 def master_mode(node):
-    pass
+    while not node.game.is_finished():
+        command = input(f'Node-{node.id}> ')
+        command = command.split(' ')
+
+        if command[0] == 'Set-node-time':
+            time_str = command[1][1:-1]
+            time_str = time_str.split(':')
+            hh, mm, ss = time_str[0], time_str[1], time_str[2]
+        else:
+            print('Wrong command! Please try again.')
 
 
 def serve():
@@ -190,27 +204,29 @@ def serve():
     server.start()
     print("Server started listening on DESIGNATED port\n")
 
-    while node.leader is None:
-        time.sleep(0.001)
+    while True:
+        while node.leader is None:
+            time.sleep(0.001)
 
-    if node.leader == node_id:
-        print("\nI am the Master of the game!")
-        node.synchronize_time()
-    else:
-        print("\nI am the Player!")
-        print("Waiting for synchronization...")
+        if node.leader == node_id:
+            print("\nI am the Master of the game!")
+            node.synchronize_time()
+        else:
+            print("\nI am the Player!")
+            print("Waiting for synchronization...")
 
-    while not node.synchronized:
-        time.sleep(0.001)
+        while not node.synchronized:
+            time.sleep(0.001)
 
-    print("Ready to play!\n")
+        print("Ready to play!\n")
 
-    if node.leader == node_id:
-        master_mode(node)
-    else:
-        player_mode(node)
-
-    server.wait_for_termination()
+        if node.leader == node_id:
+            node.init_game()
+            master_mode(node)
+        else:
+            with grpc.insecure_channel(config.IDS_TO_IPS[node.leader]) as channel:
+                stub = tictactoe_pb2_grpc.TicTacToeStub(channel)
+                player_mode(node, stub)
 
 
 if __name__ == '__main__':

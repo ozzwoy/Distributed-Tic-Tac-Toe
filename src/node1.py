@@ -1,3 +1,5 @@
+import inspect
+
 import config
 import datetime
 import grpc
@@ -7,6 +9,8 @@ import tictactoe_pb2_grpc
 
 from concurrent import futures
 from model.model import TicTacToe
+from threading import Thread
+
 
 class Node(tictactoe_pb2_grpc.TicTacToeServicer):
     def __init__(self, id_, num_nodes, ids_to_ips):
@@ -19,12 +23,14 @@ class Node(tictactoe_pb2_grpc.TicTacToeServicer):
 
         self.game = None
         self.game_started = False
+        self.game_finished = False
+        self.winner = None
 
     def StartElection(self, request, context):
         nodes = list(request.nodes)
 
         if len(nodes) == 0:
-            print("Initiating elections.")
+            print("\nInitiating elections.")
         else:
             print(f"Received election message from Node {nodes[-1]}.")
             print(f"Current list of visited nodes: {nodes}.")
@@ -76,12 +82,12 @@ class Node(tictactoe_pb2_grpc.TicTacToeServicer):
         return tictactoe_pb2.LeaderResponse()
 
     def GetTime(self, request, context):
-        current_time = (datetime.datetime.utcnow() + self.timedelta).strftime("%Y-%m-%d %H:%M:%S.%f")[:-3] + "Z"
+        current_time = self.get_time().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3] + "Z"
         return tictactoe_pb2.TimeResponse(timestamp=current_time)
 
     def SynchTime(self, request, context):
         new_time = datetime.datetime.strptime(request.timestamp, "%Y-%m-%d %H:%M:%S.%fZ")
-        real_time = datetime.datetime.utcnow() + self.timedelta
+        real_time = self.get_time()
         self.timedelta = new_time - real_time
         self.synchronized = True
 
@@ -97,7 +103,7 @@ class Node(tictactoe_pb2_grpc.TicTacToeServicer):
                 message = 'Not your turn!'
             elif self.game.is_finished():
                 message = 'Game is finished!'
-            elif self.game.get_board()[request.cell] != self.game.empty_cell:
+            elif self.game.get_cell(request.cell) != self.game.empty_cell:
                 message = 'The cell is already occupied!'
 
             return tictactoe_pb2.SetSymbolResponse(successful=False, message=message)
@@ -107,6 +113,22 @@ class Node(tictactoe_pb2_grpc.TicTacToeServicer):
                                                             self.timedelta).strftime("%Y-%m-%d %H:%M:%S.%f")[:-3],
                                                board=self.game.get_board_str())
 
+    def SetNodeTime(self, request, context):
+        real_time = self.get_time()
+        new_time = datetime.datetime(year=real_time.year, month=real_time.month, day=real_time.day,
+                                     hour=request.hh, minute=request.mm, second=request.ss)
+        self.timedelta = new_time - real_time
+
+        return tictactoe_pb2.SetNodeTimeResponse()
+
+    def ReportWinner(self, request, context):
+        self.game_started = False
+        self.game_finished = True
+        self.winner = request.winner
+        self.leader = None
+
+        return tictactoe_pb2.WinnerMessageResponse()
+
     def conduct_elections(self):
         with grpc.insecure_channel(config.IDS_TO_IPS[self.id]) as channel:
             stub = tictactoe_pb2_grpc.TicTacToeStub(channel)
@@ -114,6 +136,9 @@ class Node(tictactoe_pb2_grpc.TicTacToeServicer):
                 stub.StartElection(tictactoe_pb2.ElectionMessage(nodes=[]))
             except grpc.RpcError:
                 pass
+
+    def get_time(self):
+        return datetime.datetime.utcnow() + self.timedelta
 
     @staticmethod
     def christians_algorithm(start_time, end_time, server_time, real_time):
@@ -143,7 +168,7 @@ class Node(tictactoe_pb2_grpc.TicTacToeServicer):
         reference_time = datetime.timedelta()
         # average_time = reference_time + sum([_time - reference_time for _time in node_times.values()],
         #                                     datetime.timedelta()) / config.NUM_NODES
-        average_time = (datetime.datetime.utcnow() + self.timedelta).strftime("%Y-%m-%d %H:%M:%S.%f")[:-3] + "Z"
+        average_time = self.get_time().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3] + "Z"
 
         for node in config.IDS_TO_IPS.values():
             with grpc.insecure_channel(node) as channel:
@@ -157,7 +182,7 @@ class Node(tictactoe_pb2_grpc.TicTacToeServicer):
 
 
 def player_mode(node, stub):
-    while True:
+    while not node.game_finished:
         command = input(f'Node-{node.id}> ')
         command = command.split(' ')
 
@@ -172,26 +197,68 @@ def player_mode(node, stub):
             if not response.successful:
                 print(response.message)
         elif command[0] == 'Set-node-time':
-            time_str = command[1][1:-1]
-            time_str = time_str.split(':')
-            hh, mm, ss = time_str[0], time_str[1], time_str[2]
+            node_id = int(command[1].split('-')[1])
 
-            pass
+            if node_id != node.id:
+                print('Only master is allowed to set time of other nodes.')
+                continue
+
+            time_str = command[2][1:-1]
+            time_str = time_str.split(':')
+            hh, mm, ss = int(time_str[0]), int(time_str[1]), int(time_str[2])
+
+            real_time = node.get_time()
+            new_time = datetime.datetime(year=real_time.year, month=real_time.month, day=real_time.day,
+                                         hour=hh, minute=mm, second=ss)
+            node.timedelta = new_time - real_time
+
+            print(f'Time set successfully. Current time: {node.get_time()}.')
+        elif command[0] == 'Show-time':
+            print(node.get_time())
         else:
             print('Wrong command! Please try again.')
 
+    print(f'Game over! The winner is {node.winner}.\n')
+    node.game_finished = False
+
+
+def game_daemon(node):
+    while not node.game.is_finished():
+        time.sleep(0.001)
+
+    for player in config.IDS_TO_IPS.values():
+        with grpc.insecure_channel(player) as channel:
+            stub = tictactoe_pb2_grpc.TicTacToeStub(channel)
+            stub.ReportWinner(tictactoe_pb2.WinnerMessage(winner=node.game.get_winner()))
+
 
 def master_mode(node):
+    # monitor winner
+    daemon = Thread(target=game_daemon, args=[node])
+    daemon.start()
+
     while not node.game.is_finished():
         command = input(f'Node-{node.id}> ')
         command = command.split(' ')
 
         if command[0] == 'Set-node-time':
-            time_str = command[1][1:-1]
+            node_id = int(command[1].split('-')[1])
+            time_str = command[2][1:-1]
             time_str = time_str.split(':')
-            hh, mm, ss = time_str[0], time_str[1], time_str[2]
+            hh, mm, ss = int(time_str[0]), int(time_str[1]), int(time_str[2])
+
+            with grpc.insecure_channel(config.IDS_TO_IPS[node_id]) as channel:
+                stub = tictactoe_pb2_grpc.TicTacToeStub(channel)
+                stub.SetNodeTime(tictactoe_pb2.SetNodeTimeRequest(hh=hh, mm=mm, ss=ss))
+
+            print('Time set successfully.')
+        elif command[0] == 'Show-time':
+            print(node.get_time())
         else:
             print('Wrong command! Please try again.')
+
+    print(f'Game over! The winner is {node.winner}.\n')
+    node.game = None
 
 
 def serve():
@@ -205,6 +272,8 @@ def serve():
     print("Server started listening on DESIGNATED port\n")
 
     while True:
+        print('To start the game write "Start-game".')
+
         command = input(f'Node-{node.id}> ')
 
         if command != 'Start-game':

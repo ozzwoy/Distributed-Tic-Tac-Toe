@@ -5,6 +5,9 @@ class TicTacToe:
         self.empty_cell = '-'
         self.board = [self.empty_cell] * 9
 
+    def get_cell(self, i):
+        return self.board[i - 1]
+
     def get_board(self):
         return self.board
 
@@ -13,8 +16,8 @@ class TicTacToe:
                f'-----------------\n'\
                f'{self.board[3]}  |  {self.board[4]}  |  {self.board[5]}\n' \
                f'-----------------\n'\
-               f'{self.board[3]}  |  {self.board[4]}  |  {self.board[5]}\n' \
-               f'-----------------\n'
+               f'{self.board[6]}  |  {self.board[7]}  |  {self.board[8]}\n' \
+               f'-----------------'
 
     def set_symbol(self, cell, symbol):
         if symbol != self.players[self.current_player]:
@@ -33,7 +36,7 @@ class TicTacToe:
 
     def get_winner(self):
         if self.is_finished():
-            return (self.current_player + 1) % 2
+            return self.players[(self.current_player + 1) % 2]
         return None
 
     def is_finished(self):
